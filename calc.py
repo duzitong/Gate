@@ -1,3 +1,7 @@
+import time
+from operator import add
+from pyspark import SparkContext
+
 def operate(a, b, gate_type):
     if gate_type == 0:
         return a & b
@@ -23,8 +27,29 @@ def check(i, line):
         return False
     return True
 
-def operate_line(line):
+def str_gen(line):
+    ret = ''
+    for i in range(len(line)-1):
+        ret += str(line[i]) + ','
+    ret += str(line[-1])
+    return ret
+
+def operate_line(linestr):
+    ret = []
+    line = [int(num) for num in linestr.split(',')]
     output = set(gate_output_generator(line))
     for i in output:
         if check(i, line):
-            yield sorted(line + [i])
+            ret.append(str_gen(sorted(line + [i])))
+    return ret
+
+sc = SparkContext("spark://172.16.7.12:7077", "Gate")
+a = ["255,3855,13107,21845"]
+start = time.time()
+rdd = sc.parallelize(a)
+for i in range(6):
+    rdd = rdd.flatMap(operate_line).distinct()
+print('saving file')
+rdd.saveAsTextFile("hdfs://172.16.7.12:9000/duzitong/6")
+end = time.time()
+print('Done: ' + str(end-start) + 'seconds used.')
